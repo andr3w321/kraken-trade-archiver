@@ -1,0 +1,82 @@
+#!/usr/bin/python
+from argparse import ArgumentParser
+import os
+import requests
+import pickle
+
+def get_data(api_keyword, last):
+    """ Make a kraken API request and return the json data or print an error """
+    url = "{}{}?pair=USDTUSD".format(api_url, api_keyword)
+    if last != "":
+        url = "{}&since={}".format(url, last)
+    print(url)
+    res = requests.get(url)
+    if res.status_code == 200:
+        data = res.json()
+        if data["error"] != []:
+            print("ERROR", data["error"])
+        else:
+            return data
+    else:
+        print("ERROR:", res.status_code)
+
+def save_kraken_vars_to_file(last_trades_req, last_spreads_req, trades, spreads):
+    with open(kraken_data_file, 'wb') as f:
+        pickle.dump([last_trades_req, last_spreads_req, trades, spreads], f)
+
+def load_kraken_vars_from_file():
+    with open(kraken_data_file, 'rb') as f:
+        return pickle.load(f)
+
+def print_kraken(data):
+    for time in data:
+        print(",".join([str(time)] + data[time]))
+
+def get_trades(last_trades_req, last_spreads_req, trades, spreads):
+    data = get_data("Trades", last_trades_req)
+    for trade in data["result"]["USDTZUSD"]:
+        price, volume, time, buy_or_sell, market_or_limit, misc = trade
+        trades[time] = [price, volume, buy_or_sell, market_or_limit, misc]
+    last_trades_req = data["result"]["last"]
+    save_kraken_vars_to_file(last_trades_req, last_spreads_req, trades, spreads)
+
+def get_spreads(last_trades_req, last_spreads_req, trades, spreads):
+    data = get_data("Spread", last_spreads_req)
+    for spread in data["result"]["USDTZUSD"]:
+        time, bid, ask = spread
+        spreads[time] = [bid, ask]
+    last_spreads_req = data["result"]["last"]
+    save_kraken_vars_to_file(last_trades_req, last_spreads_req, trades, spreads)
+
+api_url = "https://api.kraken.com/0/public/"
+kraken_data_file = "./kraken_data.pkl"
+
+# Create tmp kraken data file if it doesn't exist yet
+if os.path.isfile(kraken_data_file) is False:
+    # create 
+    last_trades_req = ""
+    last_spreads_req = ""
+    trades = {}
+    spreads = {}
+    save_kraken_vars_to_file(last_trades_req, last_spreads_req, trades, spreads)
+
+last_trades_req, last_spreads_req, trades, spreads = load_kraken_vars_from_file()
+
+aparser = ArgumentParser()
+#_ is used as a throwaway variable name
+_ = aparser.add_argument('--get-trades', action='store_true', dest="get_trades", help='hit kraken.com api and get all recent USDT/USD trades and save them in {}'.format(kraken_data_file), required=False)
+_ = aparser.add_argument('--get-spreads', action='store_true', dest="get_spreads", help='hit kraken.com api and get all recent USDT/USD spreads and save them in {}'.format(kraken_data_file), required=False)
+_ = aparser.add_argument('--print-trades', action='store_true', dest="print_trades", help='print all stored USDT/USD trades as a csv', required=False)
+_ = aparser.add_argument('--print-spreads', action='store_true', dest="print_spreads", help='print all stored USDT/USD spreads as a csv', required=False)
+args = aparser.parse_args()
+
+if args.get_trades:
+    get_trades(last_trades_req, last_spreads_req, trades, spreads)
+if args.get_spreads:
+    get_spreads(last_trades_req, last_spreads_req, trades, spreads)
+if args.print_trades:
+    print("time,price,volume,buy_or_sell,market_or_limit,misc")
+    print_kraken(trades)
+if args.print_spreads:
+    print("time,bid,ask")
+    print_kraken(spreads)
