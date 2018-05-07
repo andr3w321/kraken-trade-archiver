@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 import os
 import requests
 import pickle
+import matplotlib.pyplot as plt
 
 def get_data(api_keyword, last):
     """ Make a kraken API request and return the json data or print an error """
@@ -48,6 +49,21 @@ def get_spreads(last_trades_req, last_spreads_req, trades, spreads):
     last_spreads_req = data["result"]["last"]
     save_kraken_vars_to_file(last_trades_req, last_spreads_req, trades, spreads)
 
+def graph(data_type, data):
+    x,y,y2 = [],[],[]
+    for time in sorted(data):
+        x.append(time)
+        y.append(data[time][0])
+        if data_type == "Spreads":
+            y2.append(data[time][1])
+    plt.plot(x, y, '-o')
+    if data_type == "Spreads":
+        plt.plot(x, y2, '-o')
+    plt.title("USDT/USD kraken.com {} history".format(data_type))
+    plt.xlabel("Time")
+    plt.ylabel("Price")
+    plt.show()
+
 api_url = "https://api.kraken.com/0/public/"
 kraken_data_file = "./kraken_data.pkl"
 
@@ -68,6 +84,8 @@ _ = aparser.add_argument('--get-trades', action='store_true', dest="get_trades",
 _ = aparser.add_argument('--get-spreads', action='store_true', dest="get_spreads", help='hit kraken.com api and get all recent USDT/USD spreads and save them in {}'.format(kraken_data_file), required=False)
 _ = aparser.add_argument('--print-trades', action='store_true', dest="print_trades", help='print all stored USDT/USD trades as a csv', required=False)
 _ = aparser.add_argument('--print-spreads', action='store_true', dest="print_spreads", help='print all stored USDT/USD spreads as a csv', required=False)
+_ = aparser.add_argument('--graph-trades', action='store_true', dest="graph_trades", help='graph all stored USDT/USD trades', required=False)
+_ = aparser.add_argument('--graph-spreads', action='store_true', dest="graph_spreads", help='graph all stored USDT/USD spreads', required=False)
 args = aparser.parse_args()
 
 if args.get_trades:
@@ -80,3 +98,7 @@ if args.print_trades:
 if args.print_spreads:
     print("time,bid,ask")
     print_kraken(spreads)
+if args.graph_trades:
+    graph("Trades", trades)
+if args.graph_spreads:
+    graph("Spreads", spreads)

@@ -14,4 +14,8 @@ optional arguments:
                    save them in ./kraken_data.pkl
   --print-trades   print all stored USDT/USD trades as a csv
   --print-spreads  print all stored USDT/USD spreads as a csv
+  --graph-trades   graph all stored USDT/USD trades
+  --graph-spreads  graph all stored USDT/USD spreads
 ```
+
+The graphs are currently a work in progress.
