@@ -4,6 +4,12 @@ import os
 import requests
 import pickle
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import datetime
+import pytz
+
+def to_dt(dt):
+    return datetime.datetime.utcfromtimestamp(float(dt)).replace(tzinfo=pytz.UTC)
 
 def get_data(api_keyword, last):
     """ Make a kraken API request and return the json data or print an error """
@@ -52,16 +58,25 @@ def get_spreads(last_trades_req, last_spreads_req, trades, spreads):
 def graph(data_type, data):
     x,y,y2 = [],[],[]
     for time in sorted(data):
-        x.append(time)
-        y.append(data[time][0])
+        x.append(to_dt(time))
+        y.append(float(data[time][0]))
         if data_type == "Spreads":
-            y2.append(data[time][1])
-    plt.plot(x, y, '-o')
+            y2.append(float(data[time][1]))
+    fig, ax = plt.subplots()
     if data_type == "Spreads":
-        plt.plot(x, y2, '-o')
-    plt.title("USDT/USD kraken.com {} history".format(data_type))
+        plt.plot_date(x, y, '-', color="blue", label="bid")
+        plt.plot_date(x, y2, '-', color="orange", label="ask")
+    else:
+        plt.plot_date(x, y, '-', color="blue", label="trade")
+    myFmt = mdates.DateFormatter('%m-%d')
+    ax.xaxis.set_major_formatter(myFmt)
+    plt.legend()
+    plt.locator_params(axis='y', nticks=4)
+    title = "USDT/USD kraken.com {} history".format(data_type)
+    plt.title(title)
     plt.xlabel("Time")
     plt.ylabel("Price")
+    plt.savefig("./" + title.replace("/","-") + ".png")
     plt.show()
 
 api_url = "https://api.kraken.com/0/public/"

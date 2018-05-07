@@ -18,4 +18,4 @@ optional arguments:
   --graph-spreads  graph all stored USDT/USD spreads
 ```
 
-The graphs are currently a work in progress.
+BTC Donations: 38hs9PyTbWG4SgyS4yvrR8CQ9PFXErJ5xk
