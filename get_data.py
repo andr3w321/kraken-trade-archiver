@@ -71,7 +71,6 @@ def graph(data_type, data):
     myFmt = mdates.DateFormatter('%m-%d')
     ax.xaxis.set_major_formatter(myFmt)
     plt.legend()
-    plt.locator_params(axis='y', nticks=4)
     title = "USDT/USD kraken.com {} history".format(data_type)
     plt.title(title)
     plt.xlabel("Time")
