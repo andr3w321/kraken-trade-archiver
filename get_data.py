@@ -163,20 +163,23 @@ if args.pair is None:
 if os.path.isfile(kraken_data_file) is False:
     # create 
     last_trades_req = {}
-    if args.pair not in last_trades_req:
-        last_trades_req[args.pair] = ""
     last_spreads_req = {}
-    if args.pair not in last_spreads_req:
-        last_spreads_req[args.pair] = ""
     trades = {}
-    if args.pair not in trades:
-        trades[args.pair] = {}
     spreads = {}
-    if args.pair not in spreads:
-        spreads[args.pair] = {}
     save_kraken_vars_to_file(last_trades_req, last_spreads_req, trades, spreads)
 
 last_trades_req, last_spreads_req, trades, spreads = load_kraken_vars_from_file()
+
+# add pairs keys if necessary and save to file
+if args.pair not in last_trades_req:
+    last_trades_req[args.pair] = ""
+if args.pair not in last_spreads_req:
+    last_spreads_req[args.pair] = ""
+if args.pair not in trades:
+    trades[args.pair] = {}
+if args.pair not in spreads:
+    spreads[args.pair] = {}
+save_kraken_vars_to_file(last_trades_req, last_spreads_req, trades, spreads)
 
 if args.get_trades:
     get_trades(args.pair, last_trades_req, last_spreads_req, trades, spreads)
