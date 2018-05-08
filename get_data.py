@@ -7,13 +7,27 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import datetime
 import pytz
+import numpy
+
+def get_alt_pair_name(pair):
+    # Use https://api.kraken.com/0/public/AssetPairs to lookup altname if want to add pairs
+    if pair == "USDTUSD":
+        return "USDTZUSD"
+    elif pair == "XBTUSD":
+        return "XXBTZUSD"
+    elif pair == "ETHUSD":
+        return "XETHZUSD"
+    elif pair in ["BCHUSD","EOSUSD"]:
+        return pair
+    else:
+        print("ERROR: Unknown pair {}".format(pair))
 
 def to_dt(dt):
     return datetime.datetime.utcfromtimestamp(float(dt)).replace(tzinfo=pytz.UTC)
 
-def get_data(api_keyword, last):
+def get_data(pair, api_keyword, last):
     """ Make a kraken API request and return the json data or print an error """
-    url = "{}{}?pair=USDTUSD".format(api_url, api_keyword)
+    url = "{}{}?pair={}".format(api_url, api_keyword, pair)
     if last != "":
         url = "{}&since={}".format(url, last)
     print(url)
@@ -35,29 +49,32 @@ def load_kraken_vars_from_file():
     with open(kraken_data_file, 'rb') as f:
         return pickle.load(f)
 
-def print_kraken(data):
-    for time in data:
-        print(",".join([str(time)] + data[time]))
+def print_kraken(pair, data):
+    for time in data[pair]:
+        print(",".join([str(time)] + data[pair][time]))
 
-def get_trades(last_trades_req, last_spreads_req, trades, spreads):
-    data = get_data("Trades", last_trades_req)
-    for trade in data["result"]["USDTZUSD"]:
+def get_trades(pair, last_trades_req, last_spreads_req, trades, spreads):
+    data = get_data(pair, "Trades", last_trades_req[pair])
+    for trade in data["result"][get_alt_pair_name(pair)]:
         price, volume, time, buy_or_sell, market_or_limit, misc = trade
-        trades[time] = [price, volume, buy_or_sell, market_or_limit, misc]
-    last_trades_req = data["result"]["last"]
+        trades[pair][time] = [price, volume, buy_or_sell, market_or_limit, misc]
+    last_trades_req[pair] = data["result"]["last"]
     save_kraken_vars_to_file(last_trades_req, last_spreads_req, trades, spreads)
 
-def get_spreads(last_trades_req, last_spreads_req, trades, spreads):
-    data = get_data("Spread", last_spreads_req)
-    for spread in data["result"]["USDTZUSD"]:
+def get_spreads(pair, last_trades_req, last_spreads_req, trades, spreads):
+    data = get_data(pair, "Spread", last_spreads_req[pair])
+    for spread in data["result"][get_alt_pair_name(pair)]:
         time, bid, ask = spread
-        spreads[time] = [bid, ask]
-    last_spreads_req = data["result"]["last"]
+        spreads[pair][time] = [bid, ask]
+    last_spreads_req[pair] = data["result"]["last"]
     save_kraken_vars_to_file(last_trades_req, last_spreads_req, trades, spreads)
 
-def graph(data_type, data):
+def graph(pair, data_type, data):
     x,y,y2 = [],[],[]
-    for time in sorted(data):
+    for time in sorted(data[pair]):
+        # if data_type == "Trades":
+            # price, volume, buy_or_sell, market_or_limit, misc = data[time]
+            # volume = float(volume)
         x.append(to_dt(time))
         y.append(float(data[time][0]))
         if data_type == "Spreads":
@@ -71,48 +88,113 @@ def graph(data_type, data):
     myFmt = mdates.DateFormatter('%m-%d')
     ax.xaxis.set_major_formatter(myFmt)
     plt.legend()
-    title = "USDT/USD kraken.com {} history".format(data_type)
+    title = "{} kraken.com {} history".format(pair, data_type)
     plt.title(title)
     plt.xlabel("Time")
     plt.ylabel("Price")
     plt.savefig("./" + title.replace("/","-") + ".png")
     plt.show()
 
+def trades_summary(pair, data):
+    buys, sells, market_orders, limit_orders, total_volume, n_trades = 0,0,0,0,0,0
+    for time in sorted(data[pair]):
+        price, volume, buy_or_sell, market_or_limit, misc = data[pair][time]
+        volume = float(volume)
+        n_trades += 1
+        total_volume += volume
+        if buy_or_sell == "b":
+            buys += 1
+        elif buy_or_sell == "s":
+            sells +=1
+        if market_or_limit == "m":
+            market_orders += 1
+        elif market_or_limit == "l":
+            limit_orders += 1
+    print("{} Trade Summary".format(pair))
+    print("Buy orders(vs Sell): {:.2f}% ({}/{})".format(buys/(buys + sells) * 100.0, buys, (buys + sells)))
+    print("Market orders(vs Limit): {:.2f}% ({}/{})".format(market_orders/(market_orders + limit_orders) * 100.0, market_orders, (market_orders + limit_orders)))
+    print("Total volume: ${:,.2f}".format(total_volume))
+    print("Total number of trades: {:,}".format(n_trades))
+
+def trade_histogram(pair, data):
+    # work in progress...
+    x = []
+    for time in sorted(data[pair]):
+        price, volume, buy_or_sell, market_or_limit, misc = data[pair][time]
+        volume = float(volume)
+        x.append(volume)
+    n, bins, patches = plt.hist(x, bins=5, normed=True, facecolor='g')
+    plt.show()
+
+def unique_trade_volumes(pair, data):
+    trade_volumes = {}
+    for time in sorted(data[pair]):
+        price, volume, buy_or_sell, market_or_limit, misc = data[pair][time]
+        volume = float(volume)
+        if volume not in trade_volumes:
+            trade_volumes[volume] = 1
+        else:
+            trade_volumes[volume] += 1
+    print("Trade_volume,Number of trades with that volume")
+    for trade_volume in trade_volumes:
+        print("{},{}".format(str(trade_volume), trade_volumes[trade_volume]))
+
 api_url = "https://api.kraken.com/0/public/"
 kraken_data_file = "./kraken_data.pkl"
+
+aparser = ArgumentParser()
+#_ is used as a throwaway variable name
+_ = aparser.add_argument('--get-trades', action='store_true', dest="get_trades", help='hit kraken.com api and get all recent trades and save them in {}'.format(kraken_data_file), required=False)
+_ = aparser.add_argument('--get-spreads', action='store_true', dest="get_spreads", help='hit kraken.com api and get all recent spreads and save them in {}'.format(kraken_data_file), required=False)
+_ = aparser.add_argument('--print-trades', action='store_true', dest="print_trades", help='print all stored trades as a csv', required=False)
+_ = aparser.add_argument('--print-spreads', action='store_true', dest="print_spreads", help='print all stored spreads as a csv', required=False)
+_ = aparser.add_argument('--graph-trades', action='store_true', dest="graph_trades", help='graph all stored trades', required=False)
+_ = aparser.add_argument('--graph-spreads', action='store_true', dest="graph_spreads", help='graph all stored spreads', required=False)
+_ = aparser.add_argument('--trades-summary', action='store_true', dest="trades_summary", help='print a summary of trades', required=False)
+_ = aparser.add_argument('--trade-histogram', action='store_true', dest="trade_histogram", help='show a histogram of trades', required=False)
+_ = aparser.add_argument('--unique-trade-volumes', action='store_true', dest="unique_trade_volumes", help='print all unique trade volumes as a csv', required=False)
+_ = aparser.add_argument('--pair', action='store', dest="pair", help='input a kraken currency pair(USDTUSD,XBTUSD,ETHUSD,etc), default is USDTUSD', required=False)
+args = aparser.parse_args()
+
+if args.pair is None:
+    args.pair = "USDTUSD"
 
 # Create tmp kraken data file if it doesn't exist yet
 if os.path.isfile(kraken_data_file) is False:
     # create 
-    last_trades_req = ""
-    last_spreads_req = ""
+    last_trades_req = {}
+    if args.pair not in last_trades_req:
+        last_trades_req[args.pair] = ""
+    last_spreads_req = {}
+    if args.pair not in last_spreads_req:
+        last_spreads_req[args.pair] = ""
     trades = {}
+    if args.pair not in trades:
+        trades[args.pair] = {}
     spreads = {}
+    if args.pair not in spreads:
+        spreads[args.pair] = {}
     save_kraken_vars_to_file(last_trades_req, last_spreads_req, trades, spreads)
 
 last_trades_req, last_spreads_req, trades, spreads = load_kraken_vars_from_file()
 
-aparser = ArgumentParser()
-#_ is used as a throwaway variable name
-_ = aparser.add_argument('--get-trades', action='store_true', dest="get_trades", help='hit kraken.com api and get all recent USDT/USD trades and save them in {}'.format(kraken_data_file), required=False)
-_ = aparser.add_argument('--get-spreads', action='store_true', dest="get_spreads", help='hit kraken.com api and get all recent USDT/USD spreads and save them in {}'.format(kraken_data_file), required=False)
-_ = aparser.add_argument('--print-trades', action='store_true', dest="print_trades", help='print all stored USDT/USD trades as a csv', required=False)
-_ = aparser.add_argument('--print-spreads', action='store_true', dest="print_spreads", help='print all stored USDT/USD spreads as a csv', required=False)
-_ = aparser.add_argument('--graph-trades', action='store_true', dest="graph_trades", help='graph all stored USDT/USD trades', required=False)
-_ = aparser.add_argument('--graph-spreads', action='store_true', dest="graph_spreads", help='graph all stored USDT/USD spreads', required=False)
-args = aparser.parse_args()
-
 if args.get_trades:
-    get_trades(last_trades_req, last_spreads_req, trades, spreads)
+    get_trades(args.pair, last_trades_req, last_spreads_req, trades, spreads)
 if args.get_spreads:
-    get_spreads(last_trades_req, last_spreads_req, trades, spreads)
+    get_spreads(args.pair, last_trades_req, last_spreads_req, trades, spreads)
 if args.print_trades:
     print("time,price,volume,buy_or_sell,market_or_limit,misc")
-    print_kraken(trades)
+    print_kraken(args.pair, trades)
 if args.print_spreads:
     print("time,bid,ask")
-    print_kraken(spreads)
+    print_kraken(args.pair, spreads)
 if args.graph_trades:
-    graph("Trades", trades)
+    graph(args.pair, "Trades", trades)
 if args.graph_spreads:
-    graph("Spreads", spreads)
+    graph(args.pair, "Spreads", spreads)
+if args.trades_summary:
+    trades_summary(args.pair, trades)
+if args.trade_histogram:
+    trade_histogram(args.pair, trades)
+if args.unique_trade_volumes:
+    unique_trade_volumes(args.pair, trades)
