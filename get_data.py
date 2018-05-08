@@ -76,9 +76,9 @@ def graph(pair, data_type, data):
             # price, volume, buy_or_sell, market_or_limit, misc = data[time]
             # volume = float(volume)
         x.append(to_dt(time))
-        y.append(float(data[time][0]))
+        y.append(float(data[pair][time][0]))
         if data_type == "Spreads":
-            y2.append(float(data[time][1]))
+            y2.append(float(data[pair][time][1]))
     fig, ax = plt.subplots()
     if data_type == "Spreads":
         plt.plot_date(x, y, '-', color="blue", label="bid")
@@ -92,7 +92,7 @@ def graph(pair, data_type, data):
     plt.title(title)
     plt.xlabel("Time")
     plt.ylabel("Price")
-    plt.savefig("./" + title.replace("/","-") + ".png")
+    plt.savefig(output_folder + title.replace("/","-") + ".png")
     plt.show()
 
 def trades_summary(pair, data):
@@ -100,6 +100,7 @@ def trades_summary(pair, data):
     for time in sorted(data[pair]):
         price, volume, buy_or_sell, market_or_limit, misc = data[pair][time]
         volume = float(volume)
+        price = float(price)
         n_trades += 1
         total_volume += volume
         if buy_or_sell == "b":
@@ -113,8 +114,10 @@ def trades_summary(pair, data):
     print("{} Trade Summary".format(pair))
     print("Buy orders(vs Sell): {:.2f}% ({}/{})".format(buys/(buys + sells) * 100.0, buys, (buys + sells)))
     print("Market orders(vs Limit): {:.2f}% ({}/{})".format(market_orders/(market_orders + limit_orders) * 100.0, market_orders, (market_orders + limit_orders)))
-    print("Total volume: ${:,.2f}".format(total_volume))
+    print("Total volume: {:,.2f} or ${:,.2f}".format(total_volume, price * total_volume))
     print("Total number of trades: {:,}".format(n_trades))
+    trade_volumes = get_unique_trade_volumes(pair, data)
+    print("Unique trade volume amounts: {:,} or {:,.2f}% ({:,}/{:,})\n".format(len(trade_volumes), len(trade_volumes) / n_trades * 100.0, len(trade_volumes), n_trades))
 
 def trade_histogram(pair, data):
     # work in progress...
@@ -126,7 +129,7 @@ def trade_histogram(pair, data):
     n, bins, patches = plt.hist(x, bins=5, normed=True, facecolor='g')
     plt.show()
 
-def unique_trade_volumes(pair, data):
+def get_unique_trade_volumes(pair, data):
     trade_volumes = {}
     for time in sorted(data[pair]):
         price, volume, buy_or_sell, market_or_limit, misc = data[pair][time]
@@ -135,12 +138,17 @@ def unique_trade_volumes(pair, data):
             trade_volumes[volume] = 1
         else:
             trade_volumes[volume] += 1
+    return trade_volumes
+
+def print_unique_trade_volumes(pair, data):
+    trade_volumes = get_unique_trade_volumes(pair, data)
     print("Trade_volume,Number of trades with that volume")
     for trade_volume in trade_volumes:
         print("{},{}".format(str(trade_volume), trade_volumes[trade_volume]))
 
 api_url = "https://api.kraken.com/0/public/"
 kraken_data_file = "./kraken_data.pkl"
+output_folder = "./output/"
 
 aparser = ArgumentParser()
 #_ is used as a throwaway variable name
@@ -200,4 +208,4 @@ if args.trades_summary:
 if args.trade_histogram:
     trade_histogram(args.pair, trades)
 if args.unique_trade_volumes:
-    unique_trade_volumes(args.pair, trades)
+    print_unique_trade_volumes(args.pair, trades)
