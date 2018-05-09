@@ -8,6 +8,7 @@ import matplotlib.dates as mdates
 import datetime
 import pytz
 import numpy
+import math
 
 def get_alt_pair_name(pair):
     # Use https://api.kraken.com/0/public/AssetPairs to lookup altname if want to add pairs
@@ -146,6 +147,20 @@ def print_unique_trade_volumes(pair, data):
     for trade_volume in trade_volumes:
         print("{},{}".format(str(trade_volume), trade_volumes[trade_volume]))
 
+def graph_unique_trade_volumes(pair, data):
+    trade_volumes = get_unique_trade_volumes(pair, data)
+    x,y = [],[]
+    for trade_volume in trade_volumes:
+        x.append(math.log(trade_volume + 1))
+        y.append(trade_volumes[trade_volume])
+    plt.scatter(x,y)
+    plt.xlabel("log(Unique Trade Volume + 1)")
+    plt.ylabel("Number of trades at that exact volume")
+    title = "{} unique trade volumes vs number of trades occuring at that volume".format(pair)
+    plt.title(title)
+    plt.savefig(output_folder + title.replace("/","-") + ".png")
+    plt.show()
+
 api_url = "https://api.kraken.com/0/public/"
 kraken_data_file = "./kraken_data.pkl"
 output_folder = "./output/"
@@ -160,7 +175,8 @@ _ = aparser.add_argument('--graph-trades', action='store_true', dest="graph_trad
 _ = aparser.add_argument('--graph-spreads', action='store_true', dest="graph_spreads", help='graph all stored spreads', required=False)
 _ = aparser.add_argument('--trades-summary', action='store_true', dest="trades_summary", help='print a summary of trades', required=False)
 _ = aparser.add_argument('--trade-histogram', action='store_true', dest="trade_histogram", help='show a histogram of trades', required=False)
-_ = aparser.add_argument('--unique-trade-volumes', action='store_true', dest="unique_trade_volumes", help='print all unique trade volumes as a csv', required=False)
+_ = aparser.add_argument('--print-unique-trade-volumes', action='store_true', dest="print_unique_trade_volumes", help='print all unique trade volumes as a csv', required=False)
+_ = aparser.add_argument('--graph-unique-trade-volumes', action='store_true', dest="graph_unique_trade_volumes", help='graph all unique trade volumes', required=False)
 _ = aparser.add_argument('--pair', action='store', dest="pair", help='input a kraken currency pair(USDTUSD,XBTUSD,ETHUSD,etc), default is USDTUSD', required=False)
 args = aparser.parse_args()
 
@@ -207,5 +223,7 @@ if args.trades_summary:
     trades_summary(args.pair, trades)
 if args.trade_histogram:
     trade_histogram(args.pair, trades)
-if args.unique_trade_volumes:
+if args.print_unique_trade_volumes:
     print_unique_trade_volumes(args.pair, trades)
+if args.graph_unique_trade_volumes:
+    graph_unique_trade_volumes(args.pair, trades)
