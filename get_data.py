@@ -72,12 +72,20 @@ def get_spreads(pair, last_trades_req, last_spreads_req, trades, spreads):
 
 def graph(pair, data_type, data):
     x,y,y2 = [],[],[]
+    net_buys = 0
     for time in sorted(data[pair]):
-        # if data_type == "Trades":
-            # price, volume, buy_or_sell, market_or_limit, misc = data[time]
-            # volume = float(volume)
         x.append(to_dt(time))
-        y.append(float(data[pair][time][0]))
+        if data_type == "Net Buying":
+            price, volume, buy_or_sell, market_or_limit, misc = data[pair][time]
+            volume = float(volume)
+            price = float(price)
+            if buy_or_sell == "b":
+                net_buys += price * volume
+            elif buy_or_sell == "s":
+                net_buys -= price * volume
+            y.append(net_buys)
+        else:
+            y.append(float(data[pair][time][0]))
         if data_type == "Spreads":
             y2.append(float(data[pair][time][1]))
     fig, ax = plt.subplots()
@@ -88,11 +96,15 @@ def graph(pair, data_type, data):
         plt.plot_date(x, y, '-', color="blue", label="trade")
     myFmt = mdates.DateFormatter('%m-%d')
     ax.xaxis.set_major_formatter(myFmt)
+    ax.get_yaxis().get_major_formatter().set_scientific(False)
     plt.legend()
     title = "{} kraken.com {} history".format(pair, data_type)
     plt.title(title)
     plt.xlabel("Time")
-    plt.ylabel("Price")
+    if data_type == "Net Buying":
+        plt.ylabel("Net Buying")
+    else:
+        plt.ylabel("Price")
     plt.savefig(output_folder + title.replace("/","-") + ".png")
     plt.show()
 
@@ -173,6 +185,7 @@ _ = aparser.add_argument('--print-trades', action='store_true', dest="print_trad
 _ = aparser.add_argument('--print-spreads', action='store_true', dest="print_spreads", help='print all stored spreads as a csv', required=False)
 _ = aparser.add_argument('--graph-trades', action='store_true', dest="graph_trades", help='graph all stored trades', required=False)
 _ = aparser.add_argument('--graph-spreads', action='store_true', dest="graph_spreads", help='graph all stored spreads', required=False)
+_ = aparser.add_argument('--graph-net-buying', action='store_true', dest="graph_net_buying", help='graph all net buying', required=False)
 _ = aparser.add_argument('--trades-summary', action='store_true', dest="trades_summary", help='print a summary of trades', required=False)
 _ = aparser.add_argument('--trade-histogram', action='store_true', dest="trade_histogram", help='show a histogram of trades', required=False)
 _ = aparser.add_argument('--print-unique-trade-volumes', action='store_true', dest="print_unique_trade_volumes", help='print all unique trade volumes as a csv', required=False)
@@ -219,6 +232,8 @@ if args.graph_trades:
     graph(args.pair, "Trades", trades)
 if args.graph_spreads:
     graph(args.pair, "Spreads", spreads)
+if args.graph_net_buying:
+    graph(args.pair, "Net Buying", trades)
 if args.trades_summary:
     trades_summary(args.pair, trades)
 if args.trade_histogram:
