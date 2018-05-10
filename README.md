@@ -5,8 +5,10 @@ To use the script edit the kraken_data_file path in `get_data.py` or leave as is
 ```
 usage: get_data.py [-h] [--get-trades] [--get-spreads] [--print-trades]
                    [--print-spreads] [--graph-trades] [--graph-spreads]
+                   [--graph-net-buying] [--graph-net-buying-adjusted]
                    [--trades-summary] [--trade-histogram]
-                   [--unique-trade-volumes] [--pair PAIR]
+                   [--print-unique-trade-volumes]
+                   [--graph-unique-trade-volumes] [--pair PAIR]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -18,10 +20,15 @@ optional arguments:
   --print-spreads       print all stored spreads as a csv
   --graph-trades        graph all stored trades
   --graph-spreads       graph all stored spreads
+  --graph-net-buying    graph all net buying
+  --graph-net-buying-adjusted
+                        graph all net buying adjusted
   --trades-summary      print a summary of trades
   --trade-histogram     show a histogram of trades
-  --unique-trade-volumes
+  --print-unique-trade-volumes
                         print all unique trade volumes as a csv
+  --graph-unique-trade-volumes
+                        graph all unique trade volumes
   --pair PAIR           input a kraken currency
                         pair(USDTUSD,XBTUSD,ETHUSD,etc), default is USDTUSD
 ```

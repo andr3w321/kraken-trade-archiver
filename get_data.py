@@ -75,14 +75,22 @@ def graph(pair, data_type, data):
     net_buys = 0
     for time in sorted(data[pair]):
         x.append(to_dt(time))
-        if data_type == "Net Buying":
+        if data_type.startswith("Net Buying"):
             price, volume, buy_or_sell, market_or_limit, misc = data[pair][time]
             volume = float(volume)
             price = float(price)
-            if buy_or_sell == "b":
-                net_buys += price * volume
-            elif buy_or_sell == "s":
-                net_buys -= price * volume
+            if data_type == "Net Buying":
+                if buy_or_sell == "b":
+                    net_buys += price * volume
+                elif buy_or_sell == "s":
+                    net_buys -= price * volume
+            elif data_type == "Net Buying Adjusted":
+                # see which is closer to zero, a buy or a sell
+                pv = price * volume
+                if abs(net_buys + pv) < abs(net_buys - pv):
+                    net_buys += pv
+                else:
+                    net_buys -= pv
             y.append(net_buys)
         else:
             y.append(float(data[pair][time][0]))
@@ -101,7 +109,7 @@ def graph(pair, data_type, data):
     title = "{} kraken.com {} history".format(pair, data_type)
     plt.title(title)
     plt.xlabel("Time")
-    if data_type == "Net Buying":
+    if data_type.startswith("Net Buying"):
         plt.ylabel("Net Buying")
     else:
         plt.ylabel("Price")
@@ -186,6 +194,7 @@ _ = aparser.add_argument('--print-spreads', action='store_true', dest="print_spr
 _ = aparser.add_argument('--graph-trades', action='store_true', dest="graph_trades", help='graph all stored trades', required=False)
 _ = aparser.add_argument('--graph-spreads', action='store_true', dest="graph_spreads", help='graph all stored spreads', required=False)
 _ = aparser.add_argument('--graph-net-buying', action='store_true', dest="graph_net_buying", help='graph all net buying', required=False)
+_ = aparser.add_argument('--graph-net-buying-adjusted', action='store_true', dest="graph_net_buying_adjusted", help='graph all net buying adjusted', required=False)
 _ = aparser.add_argument('--trades-summary', action='store_true', dest="trades_summary", help='print a summary of trades', required=False)
 _ = aparser.add_argument('--trade-histogram', action='store_true', dest="trade_histogram", help='show a histogram of trades', required=False)
 _ = aparser.add_argument('--print-unique-trade-volumes', action='store_true', dest="print_unique_trade_volumes", help='print all unique trade volumes as a csv', required=False)
@@ -234,6 +243,8 @@ if args.graph_spreads:
     graph(args.pair, "Spreads", spreads)
 if args.graph_net_buying:
     graph(args.pair, "Net Buying", trades)
+if args.graph_net_buying_adjusted:
+    graph(args.pair, "Net Buying Adjusted", trades)
 if args.trades_summary:
     trades_summary(args.pair, trades)
 if args.trade_histogram:
