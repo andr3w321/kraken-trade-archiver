@@ -1,28 +1,28 @@
 USDTUSD Trade Summary
-Buy orders(vs Sell): 50.07% (1687/3369)
-Market orders(vs Limit): 45.71% (1540/3369)
-Total volume: 3,623,637.41 or $3,624,724.50
-Total number of trades: 3,369
-Unique trade volume amounts: 1,419 or 42.12% (1,419/3,369)
+Buy orders(vs Sell): 48.48% (2447/5047)
+Market orders(vs Limit): 43.59% (2200/5047)
+Total volume: 5,302,713.53 or $5,303,243.81
+Total number of trades: 5,047
+Unique trade volume amounts: 2,009 or 39.81% (2,009/5,047)
 
 XBTUSD Trade Summary
-Buy orders(vs Sell): 49.48% (20513/41460)
-Market orders(vs Limit): 39.01% (16173/41460)
-Total volume: 12,269.57 or $104,830,011.88
-Total number of trades: 41,460
-Unique trade volume amounts: 22,860 or 55.14% (22,860/41,460)
+Buy orders(vs Sell): 48.92% (29155/59600)
+Market orders(vs Limit): 38.35% (22858/59600)
+Total volume: 19,090.83 or $158,805,144.59
+Total number of trades: 59,600
+Unique trade volume amounts: 31,560 or 52.95% (31,560/59,600)
 
 ETHUSD Trade Summary
-Buy orders(vs Sell): 59.43% (26149/44002)
-Market orders(vs Limit): 42.09% (18520/44002)
-Total volume: 127,552.33 or $90,647,616.97
-Total number of trades: 44,002
-Unique trade volume amounts: 23,293 or 52.94% (23,293/44,002)
+Buy orders(vs Sell): 59.15% (35978/60821)
+Market orders(vs Limit): 40.32% (24525/60821)
+Total volume: 172,114.99 or $121,952,073.17
+Total number of trades: 60,821
+Unique trade volume amounts: 31,100 or 51.13% (31,100/60,821)
 
 EOSUSD Trade Summary
-Buy orders(vs Sell): 42.95% (3203/7457)
-Market orders(vs Limit): 38.57% (2876/7457)
-Total volume: 866,332.33 or $11,214,672.00
-Total number of trades: 7,457
-Unique trade volume amounts: 5,480 or 73.49% (5,480/7,457)
+Buy orders(vs Sell): 43.89% (4446/10131)
+Market orders(vs Limit): 38.61% (3912/10131)
+Total volume: 1,154,466.27 or $14,888,227.89
+Total number of trades: 10,131
+Unique trade volume amounts: 7,351 or 72.56% (7,351/10,131)
 
