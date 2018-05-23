@@ -1,21 +1,26 @@
 I created this script to archive USDT/USD trade data on kraken.com, however, it now works with any currency pair, as long as you update the get_alt_pair_name() function.
 
-To use the script edit the kraken_data_file path in `get_data.py` or leave as is and it will save data in the current directory. Then run `python get_data.py --get-trades --pair USDTUSD` and `python get_data.py --get-spreads --pair USDTUSD` periodically (could be setup as a cronjob). To print a csv run `python get_data.py --print-trades --pair USDTUSD > ./output/USDTUSD-trades.csv`
+To use the script
+
+Create sqlite3 database `sqlite3 db.sql < create-sql-tables.sql` or use download and use the current db.sql file
+
+Run `python get_data.py --get-trades --pair USDTUSD` and `python get_data.py --get-spreads --pair USDTUSD` periodically (could be setup as a cronjob). To print a csv run `python get_data.py --print-trades --pair USDTUSD > ./output/USDTUSD-trades.csv`
 
 ```
-usage: get_data.py [-h] [--get-trades] [--get-spreads] [--print-trades]
-                   [--print-spreads] [--graph-trades] [--graph-spreads]
-                   [--graph-net-buying] [--graph-net-buying-adjusted]
-                   [--trades-summary] [--trade-histogram]
-                   [--print-unique-trade-volumes]
+usage: get_data.py [-h] [--db-file DB_FILE] [--get-trades] [--get-spreads]
+                   [--print-trades] [--print-spreads] [--graph-trades]
+                   [--graph-spreads] [--graph-net-buying]
+                   [--graph-net-buying-adjusted] [--trades-summary]
+                   [--trade-histogram] [--print-unique-trade-volumes]
                    [--graph-unique-trade-volumes] [--pair PAIR]
 
 optional arguments:
   -h, --help            show this help message and exit
+  --db-file DB_FILE     input the path to db file, the default is ./db.sql
   --get-trades          hit kraken.com api and get all recent trades and save
-                        them in ./kraken_data.pkl
+                        them in db
   --get-spreads         hit kraken.com api and get all recent spreads and save
-                        them in ./kraken_data.pkl
+                        them in db
   --print-trades        print all stored trades as a csv
   --print-spreads       print all stored spreads as a csv
   --graph-trades        graph all stored trades

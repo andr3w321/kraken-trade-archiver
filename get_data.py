@@ -2,13 +2,57 @@
 from argparse import ArgumentParser
 import os
 import requests
-import pickle
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import datetime
 import pytz
 import numpy
 import math
+import sqlite3
+from sqlite3 import Error
+
+def create_connection(db_file):
+    try:
+        conn = sqlite3.connect(db_file)
+        return conn
+    except Error as e:
+        print(e)
+    return None
+
+def upsert_trade(cur, pair, unix_time, price, volume, buy_or_sell, market_or_limit, misc):
+    cur.execute("""INSERT OR IGNORE INTO trade(pair, unix_time, price, volume, buy_or_sell, market_or_limit, misc) VALUES (?,?,?,?,?,?,?)""", (pair, unix_time, price, volume, buy_or_sell, market_or_limit, misc))
+
+def upsert_spread(cur, pair, unix_time, bid, ask):
+    cur.execute("""INSERT OR IGNORE INTO spread(pair, unix_time, bid, ask) VALUES (?,?,?,?)""", (pair, unix_time, bid, ask))
+
+def get_last_req(cur, trade_or_spreads, pair):
+    if trade_or_spreads not in ["trade","spreads"]:
+        raise ValueError("trade_or_spreads arg must be 'trade' or 'spreads'")
+    else:
+        query = """SELECT last_""" + trade_or_spreads + """_req FROM global WHERE pair = ?"""
+        cur.execute(query, (pair,))
+        rows = cur.fetchall()
+        if len(rows) < 1:
+            return ""
+        else:
+            return rows[0][0]
+
+def upsert_last_req(cur, trade_or_spreads, pair, last):
+    if trade_or_spreads not in ["trade","spreads"]:
+        raise ValueError("trade_or_spreads arg must be 'trade' or 'spreads'")
+    else:
+        query = """INSERT OR IGNORE INTO global (pair, last_""" + trade_or_spreads + """_req) VALUES (?,?)"""
+        cur.execute(query, (pair, last))
+        query = """UPDATE global SET last_""" + trade_or_spreads + """_req = ? WHERE pair = ?"""
+        cur.execute(query, (last, pair))
+
+def get_db_trades(cur, pair):
+    cur.execute("""SELECT * FROM trade WHERE pair = ? ORDER BY unix_time""",(pair,))
+    return cur.fetchall()
+
+def get_db_spreads(cur, pair):
+    cur.execute("""SELECT * FROM spread WHERE pair = ? ORDER BY unix_time""",(pair,))
+    return cur.fetchall()
 
 def get_alt_pair_name(pair):
     # Use https://api.kraken.com/0/public/AssetPairs to lookup altname if want to add pairs
@@ -42,41 +86,36 @@ def get_data(pair, api_keyword, last):
     else:
         print("ERROR:", res.status_code)
 
-def save_kraken_vars_to_file(last_trades_req, last_spreads_req, trades, spreads):
-    with open(kraken_data_file, 'wb') as f:
-        pickle.dump([last_trades_req, last_spreads_req, trades, spreads], f)
-
-def load_kraken_vars_from_file():
-    with open(kraken_data_file, 'rb') as f:
-        return pickle.load(f)
-
 def print_kraken(pair, data):
-    for time in data[pair]:
-        print(",".join([str(time)] + data[pair][time]))
+    for row in data:
+        print(",".join([str(x) for x in list(row)]))
 
-def get_trades(pair, last_trades_req, last_spreads_req, trades, spreads):
-    data = get_data(pair, "Trades", last_trades_req[pair])
+def get_trades(pair, cur):
+    data = get_data(pair, "Trades", get_last_req(cur, "trade", pair))
     for trade in data["result"][get_alt_pair_name(pair)]:
-        price, volume, time, buy_or_sell, market_or_limit, misc = trade
-        trades[pair][time] = [price, volume, buy_or_sell, market_or_limit, misc]
-    last_trades_req[pair] = data["result"]["last"]
-    save_kraken_vars_to_file(last_trades_req, last_spreads_req, trades, spreads)
+        price, volume, unix_time, buy_or_sell, market_or_limit, misc = trade
+        upsert_trade(cur, pair, unix_time, price, volume, buy_or_sell, market_or_limit, misc)
+    upsert_last_req(cur, "trade", pair, data["result"]["last"])
 
-def get_spreads(pair, last_trades_req, last_spreads_req, trades, spreads):
-    data = get_data(pair, "Spread", last_spreads_req[pair])
+def get_spreads(pair, cur):
+    data = get_data(pair, "Spread", get_last_req(cur, "spreads", pair))
     for spread in data["result"][get_alt_pair_name(pair)]:
-        time, bid, ask = spread
-        spreads[pair][time] = [bid, ask]
-    last_spreads_req[pair] = data["result"]["last"]
-    save_kraken_vars_to_file(last_trades_req, last_spreads_req, trades, spreads)
+        unix_time, bid, ask = spread
+        upsert_spread(cur, pair, unix_time, bid, ask)
+    upsert_last_req(cur, "spreads", pair, data["result"]["last"])
 
 def graph(pair, data_type, data):
     x,y,y2 = [],[],[]
     net_buys = 0
-    for time in sorted(data[pair]):
-        x.append(to_dt(time))
+    for row in data:
+        if len(row) == 8: # Must be trades data
+            id, pair, unix_time, price, volume, buy_or_sell, market_or_limit, misc = row
+        elif len(row) == 5: # Must be spreads data
+            id, pair, unix_time, bid, ask = row
+        else:
+            raise ValueError("Unknown data")
+        x.append(to_dt(unix_time))
         if data_type.startswith("Net Buying"):
-            price, volume, buy_or_sell, market_or_limit, misc = data[pair][time]
             volume = float(volume)
             price = float(price)
             if data_type == "Net Buying":
@@ -93,9 +132,9 @@ def graph(pair, data_type, data):
                     net_buys -= pv
             y.append(net_buys)
         else:
-            y.append(float(data[pair][time][0]))
+            y.append(float(row[3])) # price for trades data, bid for spreads data
         if data_type == "Spreads":
-            y2.append(float(data[pair][time][1]))
+            y2.append(float(row[4]))
     fig, ax = plt.subplots()
     if data_type == "Spreads":
         plt.plot_date(x, y, '-', color="blue", label="bid")
@@ -118,8 +157,8 @@ def graph(pair, data_type, data):
 
 def trades_summary(pair, data):
     buys, sells, market_orders, limit_orders, total_volume, n_trades = 0,0,0,0,0,0
-    for time in sorted(data[pair]):
-        price, volume, buy_or_sell, market_or_limit, misc = data[pair][time]
+    for row in data:
+        id, pair, unix_time, price, volume, buy_or_sell, market_or_limit, misc = row
         volume = float(volume)
         price = float(price)
         n_trades += 1
@@ -143,7 +182,8 @@ def trades_summary(pair, data):
 def trade_histogram(pair, data):
     # work in progress...
     x = []
-    for time in sorted(data[pair]):
+    for row in data:
+        id, pair, unix_time, price, volume, buy_or_sell, market_or_limit, misc = row
         price, volume, buy_or_sell, market_or_limit, misc = data[pair][time]
         volume = float(volume)
         x.append(volume)
@@ -151,9 +191,10 @@ def trade_histogram(pair, data):
     plt.show()
 
 def get_unique_trade_volumes(pair, data):
+    # could be done much easier with sql query, but adapting old code for now cause its quicker
     trade_volumes = {}
-    for time in sorted(data[pair]):
-        price, volume, buy_or_sell, market_or_limit, misc = data[pair][time]
+    for row in data:
+        id, pair, unix_time, price, volume, buy_or_sell, market_or_limit, misc = row
         volume = float(volume)
         if volume not in trade_volumes:
             trade_volumes[volume] = 1
@@ -182,13 +223,13 @@ def graph_unique_trade_volumes(pair, data):
     plt.show()
 
 api_url = "https://api.kraken.com/0/public/"
-kraken_data_file = "./kraken_data.pkl"
-output_folder = "./output/"
+output_folder = "./output3/"
 
 aparser = ArgumentParser()
 #_ is used as a throwaway variable name
-_ = aparser.add_argument('--get-trades', action='store_true', dest="get_trades", help='hit kraken.com api and get all recent trades and save them in {}'.format(kraken_data_file), required=False)
-_ = aparser.add_argument('--get-spreads', action='store_true', dest="get_spreads", help='hit kraken.com api and get all recent spreads and save them in {}'.format(kraken_data_file), required=False)
+_ = aparser.add_argument('--db-file', action='store', dest="db_file", help='input the path to db file, the default is ./db.sql', required=False)
+_ = aparser.add_argument('--get-trades', action='store_true', dest="get_trades", help='hit kraken.com api and get all recent trades and save them in db', required=False)
+_ = aparser.add_argument('--get-spreads', action='store_true', dest="get_spreads", help='hit kraken.com api and get all recent spreads and save them in db', required=False)
 _ = aparser.add_argument('--print-trades', action='store_true', dest="print_trades", help='print all stored trades as a csv', required=False)
 _ = aparser.add_argument('--print-spreads', action='store_true', dest="print_spreads", help='print all stored spreads as a csv', required=False)
 _ = aparser.add_argument('--graph-trades', action='store_true', dest="graph_trades", help='graph all stored trades', required=False)
@@ -204,52 +245,37 @@ args = aparser.parse_args()
 
 if args.pair is None:
     args.pair = "USDTUSD"
+if args.db_file is None:
+    args.db_file = "./db.sql"
 
-# Create tmp kraken data file if it doesn't exist yet
-if os.path.isfile(kraken_data_file) is False:
-    # create 
-    last_trades_req = {}
-    last_spreads_req = {}
-    trades = {}
-    spreads = {}
-    save_kraken_vars_to_file(last_trades_req, last_spreads_req, trades, spreads)
-
-last_trades_req, last_spreads_req, trades, spreads = load_kraken_vars_from_file()
-
-# add pairs keys if necessary and save to file
-if args.pair not in last_trades_req:
-    last_trades_req[args.pair] = ""
-if args.pair not in last_spreads_req:
-    last_spreads_req[args.pair] = ""
-if args.pair not in trades:
-    trades[args.pair] = {}
-if args.pair not in spreads:
-    spreads[args.pair] = {}
-save_kraken_vars_to_file(last_trades_req, last_spreads_req, trades, spreads)
+conn = create_connection(args.db_file)
+cur = conn.cursor()
 
 if args.get_trades:
-    get_trades(args.pair, last_trades_req, last_spreads_req, trades, spreads)
+    get_trades(args.pair, cur)
 if args.get_spreads:
-    get_spreads(args.pair, last_trades_req, last_spreads_req, trades, spreads)
+    get_spreads(args.pair, cur)
 if args.print_trades:
     print("time,price,volume,buy_or_sell,market_or_limit,misc")
-    print_kraken(args.pair, trades)
+    print_kraken(args.pair, get_db_trades(cur, args.pair))
 if args.print_spreads:
     print("time,bid,ask")
-    print_kraken(args.pair, spreads)
+    print_kraken(args.pair, get_db_spreads(cur, args.pair))
 if args.graph_trades:
-    graph(args.pair, "Trades", trades)
+    graph(args.pair, "Trades", get_db_trades(cur, args.pair))
 if args.graph_spreads:
-    graph(args.pair, "Spreads", spreads)
+    graph(args.pair, "Spreads", get_db_spreads(cur, args.pair))
 if args.graph_net_buying:
-    graph(args.pair, "Net Buying", trades)
+    graph(args.pair, "Net Buying", get_db_trades(cur, args.pair))
 if args.graph_net_buying_adjusted:
-    graph(args.pair, "Net Buying Adjusted", trades)
+    graph(args.pair, "Net Buying Adjusted", get_db_trades(cur, args.pair))
 if args.trades_summary:
-    trades_summary(args.pair, trades)
+    trades_summary(args.pair, get_db_trades(cur, args.pair))
 if args.trade_histogram:
-    trade_histogram(args.pair, trades)
+    trade_histogram(args.pair, get_db_trades(cur, args.pair))
 if args.print_unique_trade_volumes:
-    print_unique_trade_volumes(args.pair, trades)
+    print_unique_trade_volumes(args.pair, get_db_trades(cur, args.pair))
 if args.graph_unique_trade_volumes:
-    graph_unique_trade_volumes(args.pair, trades)
+    graph_unique_trade_volumes(args.pair, get_db_trades(cur, args.pair))
+
+conn.commit()
