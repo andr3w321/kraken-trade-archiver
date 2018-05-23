@@ -223,7 +223,7 @@ def graph_unique_trade_volumes(pair, data):
     plt.show()
 
 api_url = "https://api.kraken.com/0/public/"
-output_folder = "./output3/"
+output_folder = "./output/"
 
 aparser = ArgumentParser()
 #_ is used as a throwaway variable name
