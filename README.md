@@ -2,7 +2,7 @@ I created this script to archive USDT/USD trade data on kraken.com, however, it 
 
 To use the script
 
-Create sqlite3 database `sqlite3 db.sql < create-sql-tables.sql` or download and use the current db.sql file
+Create sqlite3 database `sqlite3 db.sql < create-sql-tables.sql` or download and use the current db.sql file. The db.sql is over 100 MB now. Contact me or open an issue if you want a copy of the db instead of the csvs.
 
 Run `python get_data.py --get-trades --pair USDTUSD` and `python get_data.py --get-spreads --pair USDTUSD` periodically (could be setup as a cronjob). To print a csv run `python get_data.py --print-trades --pair USDTUSD > ./output/USDTUSD-trades.csv`
 

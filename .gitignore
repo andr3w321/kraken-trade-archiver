@@ -2,3 +2,4 @@ script.sh
 *.pkl
 *.swp
 *.bak
+db.sql
