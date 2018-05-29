@@ -88,7 +88,8 @@ def get_data(pair, api_keyword, last):
 
 def print_kraken(pair, data):
     for row in data:
-        print(",".join([str(x) for x in list(row)]))
+        # delete id,pair columns by only doing 2:
+        print(",".join([str(x) for x in list(row)[2:]]))
 
 def get_trades(pair, cur):
     data = get_data(pair, "Trades", get_last_req(cur, "trade", pair))
