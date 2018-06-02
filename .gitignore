@@ -3,3 +3,4 @@ script.sh
 *.swp
 *.bak
 db.sql
+pull-db-script.sh
