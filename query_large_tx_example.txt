@@ -1,0 +1,1 @@
+select datetime(unix_time, 'unixepoch','localtime'),price,volume from trade where pair = 'USDTUSD' and volume > 25000 order by unix_time desc limit 50;
